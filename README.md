@@ -33,22 +33,10 @@ App de escritorio (Electron, Windows) para **chatear con** y **gestionar** tus m
   app te avisa y te da el link si no lo tenés.
 - Para correr desde el código fuente (no para usar el `.exe` ya compilado): **[Node.js](https://nodejs.org)**.
 
-## Usar la app (sin instalar nada, salvo Ollama)
-
-El `.exe` portable ya está en la raíz de este repositorio — no hace falta compilar nada.
 
 ```bash
 git clone https://github.com/estxbvnnn/tbnllm.git
 ```
-
-> Los archivos grandes (`tbnllm.exe` y compañía) se versionan con **[Git LFS](https://git-lfs.com)**. Si tu
-> `git` no lo tiene, instalalo una vez con `git lfs install` antes de clonar — si no, vas a bajar el repo
-> pero con archivos de texto de reemplazo en lugar del `.exe` real.
-
-Después, ejecutá `tbnllm.exe` (en la raíz del repo) — listo, no necesita instalación ni Node, todo va incluido.
-
-> Al ser un `.exe` sin firma digital, Windows SmartScreen puede avisar la primera vez:
-> *Más información → Ejecutar de todas formas*.
 
 Si `ollama serve` no está corriendo, la app lo intenta arrancar sola; si Ollama no está instalado directamente,
 te lo dice y te deja el link de descarga.
