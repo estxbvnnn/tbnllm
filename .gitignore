@@ -6,9 +6,26 @@ dist/
 build/*.ico
 build/.icon-ico/
 
-# No se ignora la app portable de la raíz (tbnllm.exe y sus DLLs/pak/etc):
-# se sube igual, vía Git LFS (ver .gitattributes) para no chocar con el
-# límite de 100 MB de GitHub en un commit normal.
+# App portable en la raíz (Electron + Chromium empaquetados), generada con
+# `npm run dist`. No va en el repo — se corre local con tbnllm.bat en su lugar.
+/tbnllm.exe
+/LICENSE.electron.txt
+/LICENSES.chromium.html
+/chrome_100_percent.pak
+/chrome_200_percent.pak
+/d3dcompiler_47.dll
+/ffmpeg.dll
+/icudtl.dat
+/libEGL.dll
+/libGLESv2.dll
+/locales/
+/resources/
+/resources.pak
+/snapshot_blob.bin
+/v8_context_snapshot.bin
+/vk_swiftshader.dll
+/vk_swiftshader_icd.json
+/vulkan-1.dll
 /tbnllm-portable*.zip
 
 # Logs y basura del SO
