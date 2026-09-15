@@ -29,27 +29,19 @@ App de escritorio (Electron, Windows) para **chatear con** y **gestionar** tus m
 
 ## Requisitos
 - Windows 10/11 de 64 bits.
+- [Node.js](https://nodejs.org).
 - [Ollama](https://ollama.com) instalado, con al menos un modelo descargado (`ollama pull llama3.2`) — la
   app te avisa y te da el link si no lo tenés.
-- Para correr desde el código fuente (no para usar el `.exe` ya compilado): **[Node.js](https://nodejs.org)**.
 
-
-```bash
-git clone https://github.com/estxbvnnn/tbnllm.git
-```
-
-Si `ollama serve` no está corriendo, la app lo intenta arrancar sola; si Ollama no está instalado directamente,
-te lo dice y te deja el link de descarga.
-
-## Desarrollo
+## Arrancar
 
 ```bash
 git clone https://github.com/estxbvnnn/tbnllm.git
 cd tbnllm
 ```
 
-Doble clic en **`tbnllm.bat`** — arranca Ollama si hace falta y corre `npm install` solo la primera vez
-(necesita Node.js instalado), con un loader animado. O a mano:
+Doble clic en **`tbnllm.bat`** — arranca Ollama si hace falta y corre `npm install` solo la primera vez,
+con un loader animado. O a mano:
 
 ```bash
 npm install
@@ -60,7 +52,7 @@ Toda la comunicación con Ollama ocurre en el proceso principal de Electron (`ma
 problemas de CORS y el streaming es fluido. Los datos (conversaciones, tema, ajustes) se guardan en
 `localStorage`, solo en tu equipo.
 
-### Compilar el .exe portable
+## Compilar el .exe portable
 
 ```bash
 npm run dist
