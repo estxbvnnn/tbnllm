@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('ollama', {
   chat: (payload) => ipcRenderer.invoke('ollama:chat', payload),
   stop: (streamId) => ipcRenderer.invoke('ollama:stop', streamId),
   start: () => ipcRenderer.invoke('ollama:start'),
+  installed: () => ipcRenderer.invoke('ollama:installed'),
 
   // Streaming event subscriptions — return an unsubscribe fn.
   onChatToken: (cb) => {

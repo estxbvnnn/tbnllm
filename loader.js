@@ -8,7 +8,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 
 const ROOT = __dirname;
 const OLLAMA_URL = 'http://127.0.0.1:11434/';
@@ -87,6 +87,17 @@ function ProgressBar() {
       process.stdout.write(SHOW_CURSOR);
     },
   };
+}
+
+// Comprobación instantánea de si el binario está en el PATH — evita hacer
+// esperar 12 segundos a quien directamente no tiene Ollama instalado.
+function ollamaInstalled() {
+  try {
+    execFileSync('where', ['ollama'], { stdio: 'ignore', windowsHide: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function ollamaUp(timeout = 1200) {
@@ -169,6 +180,9 @@ async function main() {
 
   if (await ollamaUp()) {
     bar.to(65, 'Ollama ya estaba en marcha');
+  } else if (!ollamaInstalled()) {
+    bar.to(65, 'Ollama no está instalado — descargalo en ollama.com');
+    await new Promise((r) => setTimeout(r, 1800)); // tiempo para leerlo
   } else {
     bar.to(20, 'Iniciando Ollama…');
     spawnDetached('ollama', ['serve'], { hideConsole: true }); // ollama.exe: sí es consola

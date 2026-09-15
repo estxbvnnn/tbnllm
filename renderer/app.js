@@ -64,6 +64,16 @@ function toast(msg, isErr) {
 
 // ── Conexión ─────────────────────────────────────────────────
 let connTimer;
+let ollamaIsInstalled = true; // optimista hasta comprobar lo contrario
+const DOWNLOAD_URL = 'https://ollama.com/download';
+
+function updateOllamaCta() {
+  const btn = $('#start-ollama');
+  btn.hidden = connected;
+  if (connected) return;
+  btn.textContent = ollamaIsInstalled ? 'Iniciar Ollama' : 'Descargar Ollama';
+}
+
 async function checkConnection() {
   const res = await window.ollama.version();
   const was = connected;
@@ -71,7 +81,8 @@ async function checkConnection() {
   const c = $('#conn');
   c.className = 'conn ' + (connected ? 'is-ok' : 'is-bad');
   $('#conn-text').textContent = connected ? 'v' + res.version : 'sin conexión';
-  $('#start-ollama').hidden = connected;
+  if (!connected) ollamaIsInstalled = await window.ollama.installed();
+  updateOllamaCta();
   $('#usage-live').classList.toggle('is-on', connected);
   if (connected && !was) { loadModels(); pollRunning(); }
   if (!connected && was) { runningModels = []; renderRunningEverywhere(); }
@@ -81,11 +92,16 @@ async function checkConnection() {
 }
 
 async function startOllama() {
+  if (!ollamaIsInstalled) { window.open(DOWNLOAD_URL); return; }
   const b = $('#start-ollama');
   b.disabled = true; b.textContent = 'Iniciando…';
   const res = await window.ollama.start();
-  b.disabled = false; b.textContent = 'Iniciar Ollama';
-  if (!res.ok) toast(res.error, true);
+  b.disabled = false;
+  if (!res.ok) {
+    if (res.notInstalled) ollamaIsInstalled = false;
+    toast(res.error, true);
+  }
+  updateOllamaCta();
   checkConnection();
 }
 
@@ -203,7 +219,17 @@ function renderEmpty() {
   const p = el('p', null, 'Todo se ejecuta en este equipo a través de Ollama; nada sale de aquí.');
   e.append(h, p);
   if (!connected) {
-    e.appendChild(el('div', 'warn', 'No hay conexión con Ollama. Arráncalo desde el lateral o ejecuta «ollama serve» en una terminal.'));
+    const warn = el('div', 'warn');
+    if (ollamaIsInstalled) {
+      warn.textContent = 'No hay conexión con Ollama. Arráncalo desde el lateral o ejecutá «ollama serve» en una terminal.';
+    } else {
+      warn.append('No se encontró Ollama en este equipo. ');
+      const a = el('a', null, 'Descargalo en ollama.com');
+      a.href = DOWNLOAD_URL;
+      warn.appendChild(a);
+      warn.append(' — es gratis y corre todo en local.');
+    }
+    e.appendChild(warn);
   } else if (!models.length) {
     e.appendChild(el('div', 'warn', 'No hay modelos instalados. Descarga uno desde la pestaña Modelos, por ejemplo «llama3.2».'));
   }

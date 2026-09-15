@@ -6,7 +6,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu } = require('el
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { execFile, spawn } = require('child_process');
+const { execFile, execFileSync, spawn } = require('child_process');
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 
@@ -145,6 +145,17 @@ async function ollamaGet(pathname) {
   return res.json();
 }
 
+// Comprobación rápida (milisegundos) de si el binario está en el PATH, para no
+// hacer esperar 15s a quien directamente no tiene Ollama instalado.
+function ollamaInstalled() {
+  try {
+    execFileSync('where', ['ollama'], { stdio: 'ignore', windowsHide: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Lanza `ollama serve` desprendido del proceso; si el binario no está, falla en silencio.
 function spawnOllama() {
   try {
@@ -167,10 +178,19 @@ async function waitForOllama(ms) {
 }
 
 ipcMain.handle('ollama:start', async () => {
+  if (!ollamaInstalled()) {
+    return {
+      ok: false,
+      notInstalled: true,
+      error: 'No se encontró Ollama en este equipo. Instálalo desde ollama.com/download y volvé a intentar.',
+    };
+  }
   if (!spawnOllama()) return { ok: false, error: 'No se pudo lanzar ollama.' };
   const ok = await waitForOllama(15000);
   return ok ? { ok: true } : { ok: false, error: 'Ollama no respondió. ¿Está instalado y en el PATH?' };
 });
+
+ipcMain.handle('ollama:installed', () => ollamaInstalled());
 
 ipcMain.handle('app:version', () => app.getVersion());
 
