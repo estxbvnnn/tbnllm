@@ -1,0 +1,17 @@
+# Dependencias (se instalan con `npm install`)
+node_modules/
+
+# Salidas de compilación (se generan con `npm run dist`)
+dist/
+build/*.ico
+build/.icon-ico/
+
+# Logs y basura del SO
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/

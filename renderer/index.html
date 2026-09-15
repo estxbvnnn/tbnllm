@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+  <title>tbnllm</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── Barra de título propia (arrastrable; min/max/cerrar los dibuja
+       Windows encima, coloreados a juego con el tema) ────────────── -->
+  <header id="titlebar" class="titlebar">
+    <span class="titlebar-brand"><span class="brand-mark" aria-hidden="true">◐</span>tbnllm</span>
+    <span id="conn" class="conn is-checking"><i></i><span id="conn-text">buscando…</span></span>
+  </header>
+
+<div id="app">
+
+  <!-- ── Lateral ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <button id="start-ollama" class="btn btn--primary btn--block" hidden>Iniciar Ollama</button>
+
+    <nav class="tabs" aria-label="Secciones">
+      <button id="nav-chat" class="tab is-active" data-view="chat">Chat</button>
+      <button id="nav-models" class="tab" data-view="models">Modelos</button>
+      <button id="nav-perf" class="tab" data-view="perf">Recursos</button>
+    </nav>
+
+    <div class="side-head">
+      <span>Conversaciones</span>
+      <button id="new-chat" class="link" title="Ctrl+N">+ nueva</button>
+    </div>
+    <div id="chat-list" class="chat-list"></div>
+
+    <section id="usage" class="usage" title="Abrir recursos">
+      <div class="usage-head"><span>Consumo</span><i id="usage-live" class="live"></i></div>
+      <div class="urow"><span class="ulbl">cpu</span><div class="meter"><i id="u-cpu"></i></div><span class="uval" id="u-cpu-v">–</span></div>
+      <div class="urow"><span class="ulbl">ram</span><div class="meter"><i id="u-ram"></i></div><span class="uval" id="u-ram-v">–</span></div>
+      <div class="urow"><span class="ulbl">gpu</span><div class="meter"><i id="u-gpu"></i></div><span class="uval" id="u-gpu-v">–</span></div>
+      <div class="urow"><span class="ulbl">vram</span><div class="meter"><i id="u-vram"></i></div><span class="uval" id="u-vram-v">–</span></div>
+      <div class="usage-foot" id="u-foot">—</div>
+    </section>
+
+    <div class="side-foot">
+      <button id="theme-toggle" class="link">Tema claro</button>
+      <span class="mono dim" id="app-version">v1.0.0</span>
+    </div>
+  </aside>
+
+  <!-- ── Chat ───────────────────────────────────────────── -->
+  <main id="view-chat" class="view">
+    <header class="topbar">
+      <label class="model-picker">
+        <span>Modelo</span>
+        <select id="model-select"></select>
+      </label>
+      <div class="topbar-right">
+        <span id="live-speed" class="live-speed" hidden><i class="live"></i><b id="live-tps">0</b> tok/s</span>
+        <button id="settings-toggle" class="btn btn--quiet">Parámetros</button>
+      </div>
+    </header>
+
+    <div id="settings-panel" class="settings" hidden>
+      <label class="field field--wide">
+        <span>System prompt</span>
+        <textarea id="system-prompt" rows="2" placeholder="Instrucciones que el modelo recibe antes de la conversación"></textarea>
+      </label>
+      <label class="field">
+        <span>Temperatura <b id="temp-val" class="mono">0.7</b></span>
+        <input id="temp" type="range" min="0" max="2" step="0.1" value="0.7" />
+      </label>
+      <label class="field">
+        <span>Contexto <span class="dim">num_ctx</span></span>
+        <input id="num-ctx" type="number" min="512" step="512" value="4096" />
+      </label>
+    </div>
+
+    <div id="messages" class="messages"></div>
+
+    <div class="composer-wrap">
+      <form id="composer" class="composer">
+        <textarea id="input" rows="1" placeholder="Escribe aquí…"></textarea>
+        <div class="composer-bar">
+          <span id="composer-meta" class="composer-meta">—</span>
+          <span class="composer-actions">
+            <button id="stop-btn" type="button" class="btn btn--icon btn--stop" hidden title="Detener (Esc)">
+              <svg viewBox="0 0 16 16" width="12" height="12"><rect x="3" y="3" width="10" height="10" fill="currentColor"/></svg>
+            </button>
+            <button id="send-btn" type="submit" class="btn btn--icon btn--primary" title="Enviar (Enter)">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>
+            </button>
+          </span>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <!-- ── Modelos ────────────────────────────────────────── -->
+  <main id="view-models" class="view" hidden>
+    <header class="topbar">
+      <h1>Modelos</h1>
+      <button id="refresh-models" class="btn btn--quiet">Actualizar</button>
+    </header>
+
+    <div class="scroll">
+      <div class="page page--wide">
+        <h2 class="sec">Descargar</h2>
+        <form id="pull-form" class="pull-row">
+          <input id="pull-name" type="text" spellcheck="false" placeholder="nombre:etiqueta — p. ej. llama3.2, qwen2.5-coder:7b, gemma3:4b" />
+          <button id="pull-btn" type="submit" class="btn btn--primary">Descargar</button>
+        </form>
+        <div id="pull-progress" class="pull-progress" hidden>
+          <div class="meter meter--lg"><i id="pull-bar-fill"></i></div>
+          <div id="pull-status" class="pull-status mono"></div>
+        </div>
+        <p class="hint">Catálogo en <a href="https://ollama.com/library">ollama.com/library</a>.</p>
+
+        <h2 class="sec">En memoria</h2>
+        <div id="running-list" class="running"></div>
+
+        <h2 class="sec">Instalados <span id="models-count" class="dim"></span></h2>
+        <div id="models-table"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Recursos ───────────────────────────────────────── -->
+  <main id="view-perf" class="view" hidden>
+    <header class="topbar">
+      <h1>Recursos</h1>
+      <span id="perf-platform" class="mono dim"></span>
+    </header>
+
+    <div class="scroll">
+      <div class="page page--wide">
+        <div class="instruments">
+          <div class="instrument">
+            <div class="lbl"><span>cpu</span><span id="cpu-cores"></span></div>
+            <div class="big"><span id="cpu-big">–</span><small>%</small></div>
+            <div class="meter"><i id="cpu-bar"></i></div>
+            <svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none"><polygon id="cpu-area" class="area"/><polyline id="cpu-line"/></svg>
+            <div class="sub" id="cpu-sub">—</div>
+          </div>
+          <div class="instrument">
+            <div class="lbl"><span>memoria</span><span id="ram-total"></span></div>
+            <div class="big"><span id="ram-big">–</span><small>%</small></div>
+            <div class="meter"><i id="ram-bar"></i></div>
+            <svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none"><polygon id="ram-area" class="area"/><polyline id="ram-line"/></svg>
+            <div class="sub" id="ram-sub">—</div>
+          </div>
+          <div class="instrument">
+            <div class="lbl"><span>gpu</span><span id="gpu-temp"></span></div>
+            <div class="big"><span id="gpu-big">–</span><small>%</small></div>
+            <div class="meter"><i id="gpu-bar"></i></div>
+            <svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none"><polygon id="gpu-area" class="area"/><polyline id="gpu-line"/></svg>
+            <div class="sub" id="gpu-sub">—</div>
+          </div>
+        </div>
+
+        <h2 class="sec">Última generación</h2>
+        <div class="statrow">
+          <div><b id="last-tps">–</b><span>tokens / s</span></div>
+          <div><b id="last-tokens">–</b><span>generados</span></div>
+          <div><b id="last-prompt">–</b><span>de prompt</span></div>
+          <div><b id="last-time">–</b><span>duración</span></div>
+        </div>
+
+        <h2 class="sec">Modelos en memoria</h2>
+        <div id="perf-running" class="running"></div>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<script src="../node_modules/marked/marked.min.js"></script>
+<script src="../node_modules/dompurify/dist/purify.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
