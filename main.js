@@ -21,8 +21,8 @@ const TITLEBAR_HEIGHT = 40;
 // Colores de la barra de título nativa (min/max/cerrar) por tema, a juego con
 // --bg-1 / --ink-2 en styles.css. titleBarOverlay no entiende variables CSS.
 const TITLEBAR_COLORS = {
-  dark: { color: '#1a1917', symbolColor: '#a49d90' },
-  light: { color: '#efe9e0', symbolColor: '#635c52' },
+  dark: { color: '#111111', symbolColor: '#9a9a9a' },
+  light: { color: '#f0f0f0', symbolColor: '#555555' },
 };
 
 // Track in-flight chat streams so the UI can abort them.
@@ -59,7 +59,7 @@ function createWindow() {
     y: saved?.y,
     minWidth: 760,
     minHeight: 560,
-    backgroundColor: '#151412',
+    backgroundColor: '#0a0a0a',
     title: 'tbnllm',
     autoHideMenuBar: true,
     show: false,

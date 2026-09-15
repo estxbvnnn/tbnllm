@@ -15,9 +15,9 @@ const OLLAMA_URL = 'http://127.0.0.1:11434/';
 const BAR_WIDTH = 28;
 
 // ── Colores (ANSI de 24 bits, a juego con --accent de la app) ──────────
-const amber = (s) => `\x1b[38;2;226;160;74m${s}\x1b[0m`;
-const amberBold = (s) => `\x1b[1m\x1b[38;2;226;160;74m${s}\x1b[0m`;
-const dim = (s) => `\x1b[38;2;109;103;94m${s}\x1b[0m`;
+const amber = (s) => `\x1b[38;2;255;59;48m${s}\x1b[0m`; // rojo señal, a juego con --accent
+const amberBold = (s) => `\x1b[1m\x1b[38;2;255;59;48m${s}\x1b[0m`;
+const dim = (s) => `\x1b[38;2;92;92;92m${s}\x1b[0m`;
 const HIDE_CURSOR = '\x1b[?25l';
 const SHOW_CURSOR = '\x1b[?25h';
 

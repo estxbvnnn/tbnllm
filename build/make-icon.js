@@ -1,5 +1,7 @@
-// Generates build/icon.png (512x512) — a rounded gradient square with a ◐ mark.
-// Pure Node, no dependencies. electron-builder converts this PNG to .ico for Windows.
+// Generates build/icon.png (512x512) — flat black square, red ">" mark.
+// No gradients, no rounded corners: a pixel-art chevron drawn as two thick
+// strokes. Pure Node, no dependencies. electron-builder converts this PNG
+// to .ico for Windows.
 const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
@@ -7,40 +9,41 @@ const path = require('path');
 const S = 512;
 const buf = Buffer.alloc(S * S * 4);
 
-const lerp = (a, b, t) => Math.round(a + (b - a) * t);
-// gradient endpoints
-const top = [124, 108, 255];   // #7c6cff
-const bot = [77, 214, 196];    // #4dd6c4
+const BG = [10, 10, 10];      // #0a0a0a
+const FG = [255, 59, 48];     // #ff3b30 — --accent
 
-const R = 108;                 // corner radius
-const cx = S / 2, cy = S / 2;
-const circR = 150;             // brand circle radius
+// ── ">" como dos trazos gruesos (polilínea A → B → C) ───────────
+const W = 46; // grosor del trazo
+const A = [180, 128];
+const B = [372, 256];
+const C = [180, 384];
 
-function inRoundedRect(x, y) {
-  const minX = R, maxX = S - R, minY = R, maxY = S - R;
-  if (x >= minX && x <= maxX) return true;
-  if (y >= minY && y <= maxY) return true;
-  // corners
-  const dx = x < minX ? minX - x : x > maxX ? x - maxX : 0;
-  const dy = y < minY ? minY - y : y > maxY ? y - maxY : 0;
-  return dx * dx + dy * dy <= R * R;
+// Distancia de un punto a un segmento, para rasterizar el trazo grueso.
+function distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const cx = x1 + t * dx, cy = y1 + t * dy;
+  return Math.hypot(px - cx, py - cy);
 }
+
+const lerp = (a, b, t) => a + (b - a) * t;
 
 for (let y = 0; y < S; y++) {
   for (let x = 0; x < S; x++) {
     const i = (y * S + x) * 4;
-    if (!inRoundedRect(x, y)) { buf[i + 3] = 0; continue; }
-    const t = y / S;
-    let r = lerp(top[0], bot[0], t);
-    let g = lerp(top[1], bot[1], t);
-    let b = lerp(top[2], bot[2], t);
-    // brand mark ◐
-    const d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
-    if (d2 <= circR * circR) {
-      if (x < cx) { r = 255; g = 255; b = 255; }               // left half solid white
-      else { r = lerp(r, 255, 0.55); g = lerp(g, 255, 0.55); b = lerp(b, 255, 0.55); } // right half light
-    }
-    buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = 255;
+    const d = Math.min(
+      distToSegment(x, y, A[0], A[1], B[0], B[1]),
+      distToSegment(x, y, B[0], B[1], C[0], C[1]),
+    );
+    // borde suave de ~1.2px para que no se vea dentado al escalar
+    const edge = (W / 2) - d;
+    const t = Math.max(0, Math.min(1, edge / 1.2 + 0.5));
+    buf[i]     = Math.round(lerp(BG[0], FG[0], t));
+    buf[i + 1] = Math.round(lerp(BG[1], FG[1], t));
+    buf[i + 2] = Math.round(lerp(BG[2], FG[2], t));
+    buf[i + 3] = 255;
   }
 }
 
