@@ -6,6 +6,30 @@ dist/
 build/*.ico
 build/.icon-ico/
 
+# App portable (Electron + Chromium empaquetados) en la raíz, lista para
+# ejecutar sin instalar nada. tbnllm.exe solo pesa >100 MB: GitHub rechaza
+# ese tamaño en un commit normal — se comparte como Release, no como
+# archivo del repo. Se regenera con `npm run dist`.
+/tbnllm.exe
+/LICENSE.electron.txt
+/LICENSES.chromium.html
+/chrome_100_percent.pak
+/chrome_200_percent.pak
+/d3dcompiler_47.dll
+/ffmpeg.dll
+/icudtl.dat
+/libEGL.dll
+/libGLESv2.dll
+/locales/
+/resources/
+/resources.pak
+/snapshot_blob.bin
+/v8_context_snapshot.bin
+/vk_swiftshader.dll
+/vk_swiftshader_icd.json
+/vulkan-1.dll
+/tbnllm-portable*.zip
+
 # Logs y basura del SO
 *.log
 npm-debug.log*
