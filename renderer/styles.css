@@ -176,6 +176,7 @@ h1 { font: 700 18px/1.2 var(--mono); margin: 0; }
 @keyframes breathe { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 
 .side-foot { display: flex; justify-content: space-between; align-items: center; padding: 10px 4px 0; border-top: 1px solid var(--line); }
+.side-foot-left { display: flex; align-items: center; gap: 10px; }
 
 /* Medidores con marcas cada 10 % */
 .meter { position: relative; height: 5px; background: var(--bg-3); overflow: hidden; }

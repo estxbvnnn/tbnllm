@@ -41,12 +41,13 @@ const fmtSize = (b) => {
   while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
   return (i >= 2 ? n.toFixed(1) : Math.round(n)) + ' ' + u[i];
 };
+const dateLocale = () => (getLang() === 'en' ? 'en-US' : 'es');
 const fmtDate = (s) => {
-  try { return new Date(s).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  try { return new Date(s).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' }); }
   catch { return ''; }
 };
 const fmtTime = (s) => {
-  try { return new Date(s).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); }
+  try { return new Date(s).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }); }
   catch { return ''; }
 };
 
@@ -71,7 +72,7 @@ function updateOllamaCta() {
   const btn = $('#start-ollama');
   btn.hidden = connected;
   if (connected) return;
-  btn.textContent = ollamaIsInstalled ? 'Iniciar Ollama' : 'Descargar Ollama';
+  btn.textContent = ollamaIsInstalled ? t('ollama.start') : t('ollama.download');
 }
 
 async function checkConnection() {
@@ -80,7 +81,7 @@ async function checkConnection() {
   connected = !!res.ok;
   const c = $('#conn');
   c.className = 'conn ' + (connected ? 'is-ok' : 'is-bad');
-  $('#conn-text').textContent = connected ? 'v' + res.version : 'sin conexión';
+  $('#conn-text').textContent = connected ? 'v' + res.version : t('conn.disconnected');
   if (!connected) ollamaIsInstalled = await window.ollama.installed();
   updateOllamaCta();
   $('#usage-live').classList.toggle('is-on', connected);
@@ -94,12 +95,13 @@ async function checkConnection() {
 async function startOllama() {
   if (!ollamaIsInstalled) { window.open(DOWNLOAD_URL); return; }
   const b = $('#start-ollama');
-  b.disabled = true; b.textContent = 'Iniciando…';
+  b.disabled = true; b.textContent = t('ollama.starting');
   const res = await window.ollama.start();
   b.disabled = false;
   if (!res.ok) {
     if (res.notInstalled) ollamaIsInstalled = false;
-    toast(res.error, true);
+    const key = { not_installed: 'ollama.notInstalled', spawn_failed: 'ollama.spawnFailed', start_timeout: 'ollama.startTimeout' }[res.code];
+    toast(key ? t(key) : res.error, true);
   }
   updateOllamaCta();
   checkConnection();
@@ -109,12 +111,12 @@ async function startOllama() {
 let models = [];
 async function loadModels() {
   const res = await window.ollama.tags();
-  if (!res.ok) { toast('No se pudo listar modelos: ' + res.error, true); return []; }
+  if (!res.ok) { toast(t('toast.modelsListFailed', { err: res.error }), true); return []; }
   models = res.models;
   const sel = $('#model-select');
   sel.innerHTML = '';
   if (!models.length) {
-    const o = el('option', null, 'sin modelos instalados'); o.value = ''; sel.appendChild(o);
+    const o = el('option', null, t('composer.noModel')); o.value = ''; sel.appendChild(o);
   }
   for (const m of models) { const o = el('option', null, shortModel(m.name)); o.value = m.name; sel.appendChild(o); }
   if (currentModel && models.some(m => m.name === currentModel)) sel.value = currentModel;
@@ -133,10 +135,10 @@ function setModel(name) {
 
 function updateComposerMeta() {
   const parts = [];
-  parts.push(currentModel ? shortModel(currentModel) : 'sin modelo');
-  parts.push('ctx ' + settings.num_ctx);
-  parts.push('temp ' + Number(settings.temperature).toFixed(1));
-  if (settings.system.trim()) parts.push('system ✓');
+  parts.push(currentModel ? shortModel(currentModel) : t('composer.noModel'));
+  parts.push(t('composer.ctx', { n: settings.num_ctx }));
+  parts.push(t('composer.temp', { n: Number(settings.temperature).toFixed(1) }));
+  if (settings.system.trim()) parts.push(t('composer.system'));
   $('#composer-meta').textContent = parts.join(' · ');
 }
 
@@ -144,16 +146,16 @@ function updateComposerMeta() {
 function renderChatList() {
   const list = $('#chat-list');
   list.innerHTML = '';
-  if (!chats.length) { list.appendChild(el('div', 'chat-empty', 'Todavía no hay conversaciones.')); return; }
+  if (!chats.length) { list.appendChild(el('div', 'chat-empty', t('conversations.empty'))); return; }
   for (const c of chats) {
     const item = el('div', 'chat-item' + (c.id === activeChatId ? ' is-active' : ''));
-    const title = el('span', 'title', c.title || 'Sin título');
+    const title = el('span', 'title', c.title || t('conversations.untitled'));
     const del = el('button', 'del', '×');
-    del.title = 'Eliminar';
+    del.title = t('conversations.deleteTitle');
     del.onclick = (e) => {
       e.stopPropagation();
       if (del.dataset.armed) { deleteChat(c.id); return; }
-      del.dataset.armed = '1'; del.textContent = '¿borrar?';
+      del.dataset.armed = '1'; del.textContent = t('conversations.deleteConfirm');
       setTimeout(() => { delete del.dataset.armed; del.textContent = '×'; }, 2500);
     };
     title.ondblclick = (e) => { e.stopPropagation(); renameChat(c, item, title); };
@@ -215,26 +217,32 @@ function renderMessages() {
 
 function renderEmpty() {
   const e = el('div', 'empty');
-  const h = el('h2', null, 'Habla con tus modelos.');
-  const p = el('p', null, 'Todo se ejecuta en este equipo a través de Ollama; nada sale de aquí.');
+  const h = el('h2', null, t('empty.title'));
+  const p = el('p', null, t('empty.subtitle'));
   e.append(h, p);
   if (!connected) {
     const warn = el('div', 'warn');
     if (ollamaIsInstalled) {
-      warn.textContent = 'No hay conexión con Ollama. Arráncalo desde el lateral o ejecutá «ollama serve» en una terminal.';
+      warn.textContent = t('empty.warnNoConn');
     } else {
-      warn.append('No se encontró Ollama en este equipo. ');
-      const a = el('a', null, 'Descargalo en ollama.com');
+      warn.append(t('empty.warnNotInstalled'));
+      const a = el('a', null, t('empty.warnNotInstalledLink'));
       a.href = DOWNLOAD_URL;
       warn.appendChild(a);
-      warn.append(' — es gratis y corre todo en local.');
+      warn.append(t('empty.warnNotInstalledSuffix'));
     }
     e.appendChild(warn);
   } else if (!models.length) {
-    e.appendChild(el('div', 'warn', 'No hay modelos instalados. Descarga uno desde la pestaña Modelos, por ejemplo «llama3.2».'));
+    e.appendChild(el('div', 'warn', t('empty.warnNoModels')));
   }
   const keys = el('dl', 'keys');
-  for (const [k, v] of [['Enter', 'enviar'], ['Shift + Enter', 'salto de línea'], ['Esc', 'detener la generación'], ['Ctrl + N', 'nueva conversación'], ['doble clic', 'renombrar una conversación']]) {
+  for (const [k, v] of [
+    [t('keys.enter'), t('keys.enterDesc')],
+    [t('keys.shiftEnter'), t('keys.shiftEnterDesc')],
+    [t('keys.esc'), t('keys.escDesc')],
+    [t('keys.ctrlN'), t('keys.ctrlNDesc')],
+    [t('keys.dblclick'), t('keys.dblclickDesc')],
+  ]) {
     keys.append(el('dt', null, k), el('dd', null, v));
   }
   e.appendChild(keys);
@@ -243,7 +251,7 @@ function renderEmpty() {
 
 function renderMessage(m, chat, isLast) {
   const wrap = el('div', 'msg msg--' + m.role);
-  const who = el('div', 'who', m.role === 'user' ? 'tú' : shortModel(m.model) || 'modelo');
+  const who = el('div', 'who', m.role === 'user' ? t('msg.you') : shortModel(m.model) || t('msg.model'));
   who.title = m.role === 'user' ? '' : (m.model || '');
   const body = el('div', 'body');
   const content = el('div', 'content');
@@ -255,11 +263,11 @@ function renderMessage(m, chat, isLast) {
   const foot = el('div', 'msg-foot');
   if (m.stats) foot.appendChild(el('span', null, m.stats));
   const actions = el('span', 'actions');
-  const copy = el('button', null, 'copiar');
-  copy.onclick = () => { navigator.clipboard.writeText(m.content); copy.textContent = 'copiado'; setTimeout(() => copy.textContent = 'copiar', 1200); };
+  const copy = el('button', null, t('msg.copy'));
+  copy.onclick = () => { navigator.clipboard.writeText(m.content); copy.textContent = t('msg.copied'); setTimeout(() => copy.textContent = t('msg.copy'), 1200); };
   actions.appendChild(copy);
   if (m.role === 'assistant' && isLast) {
-    const regen = el('button', null, 'regenerar');
+    const regen = el('button', null, t('msg.regenerate'));
     regen.onclick = () => regenerate();
     actions.appendChild(regen);
   }
@@ -274,11 +282,11 @@ function renderMessage(m, chat, isLast) {
 function enhanceCodeBlocks(container) {
   container.querySelectorAll('pre').forEach(pre => {
     if (pre.querySelector('.copy-code')) return;
-    const btn = el('button', 'copy-code', 'copiar');
+    const btn = el('button', 'copy-code', t('msg.copy'));
     btn.onclick = () => {
       const code = pre.querySelector('code');
       navigator.clipboard.writeText((code ? code.innerText : pre.innerText).trim());
-      btn.textContent = 'copiado'; setTimeout(() => btn.textContent = 'copiar', 1200);
+      btn.textContent = t('msg.copied'); setTimeout(() => btn.textContent = t('msg.copy'), 1200);
     };
     pre.appendChild(btn);
   });
@@ -288,8 +296,8 @@ function scrollBottom() { const b = $('#messages'); b.scrollTop = b.scrollHeight
 
 // ── Generación ───────────────────────────────────────────────
 function sendMessage(text) {
-  if (!connected) { toast('Ollama no está en marcha', true); return; }
-  if (!currentModel) { toast('Instala o selecciona un modelo primero', true); return; }
+  if (!connected) { toast(t('toast.ollamaDown'), true); return; }
+  if (!currentModel) { toast(t('toast.noModel'), true); return; }
   let chat = activeChat();
   if (!chat) { newChat(); chat = activeChat(); }
   chat.messages.push({ role: 'user', content: text });
@@ -353,9 +361,9 @@ function finishStream({ stats, aborted, error } = {}) {
   if (error) {
     assistant.content = error; assistant.error = true;
     contentEl.classList.add('is-error'); contentEl.textContent = error;
-    toast('Error: ' + error, true);
+    toast(t('toast.errorPrefix', { err: error }), true);
   } else if (aborted && !assistant.content) {
-    assistant.content = '(detenido antes de responder)'; assistant.error = true;
+    assistant.content = t('msg.stopped'); assistant.error = true;
     contentEl.classList.add('is-error'); contentEl.textContent = assistant.content;
   }
   if (stats && stats.eval_count && stats.eval_duration) {
@@ -407,16 +415,16 @@ window.ollama.onChatError(({ streamId, error }) => {
 // ── Gestor de modelos ────────────────────────────────────────
 async function renderModelsView() {
   const box = $('#models-table');
-  if (!box.children.length) box.innerHTML = '<p class="none">Cargando…</p>';
+  if (!box.children.length) box.innerHTML = `<p class="none">${t('models.loading')}</p>`;
   const [tagsRes] = await Promise.all([window.ollama.tags(), pollRunning()]);
   box.innerHTML = '';
-  if (!tagsRes.ok) { box.appendChild(el('p', 'none', 'Error: ' + tagsRes.error)); return; }
+  if (!tagsRes.ok) { box.appendChild(el('p', 'none', t('models.error', { err: tagsRes.error }))); return; }
   models = tagsRes.models;
   $('#models-count').textContent = models.length ? String(models.length) : '';
-  if (!models.length) { box.appendChild(el('p', 'none', 'No hay modelos instalados todavía.')); return; }
+  if (!models.length) { box.appendChild(el('p', 'none', t('models.none'))); return; }
 
   const table = el('table', 'table');
-  table.innerHTML = '<thead><tr><th>Modelo</th><th class="num">Tamaño</th><th class="num">Parámetros</th><th class="num">Cuantización</th><th class="num">Modificado</th><th></th></tr></thead>';
+  table.innerHTML = `<thead><tr><th>${t('table.model')}</th><th class="num">${t('table.size')}</th><th class="num">${t('table.params')}</th><th class="num">${t('table.quant')}</th><th class="num">${t('table.modified')}</th><th></th></tr></thead>`;
   const tbody = el('tbody');
   for (const m of models) {
     const tr = el('tr', m.name === currentModel ? 'is-current' : '');
@@ -428,11 +436,11 @@ async function renderModelsView() {
       el('td', 'num', fmtDate(m.modified_at)),
     );
     const actions = el('div', 'actions');
-    const use = el('button', 'btn btn--quiet', 'Usar');
-    use.onclick = () => { setModel(m.name); renderModelsView(); toast('Modelo activo: ' + shortModel(m.name)); };
-    const info = el('button', 'btn btn--quiet', 'Detalles');
+    const use = el('button', 'btn btn--quiet', t('table.use'));
+    use.onclick = () => { setModel(m.name); renderModelsView(); toast(t('toast.modelActive', { name: shortModel(m.name) })); };
+    const info = el('button', 'btn btn--quiet', t('table.details'));
     info.onclick = () => toggleDetails(tr, m.name);
-    const del = el('button', 'btn btn--quiet btn--danger', 'Eliminar');
+    const del = el('button', 'btn btn--quiet btn--danger', t('table.delete'));
     del.onclick = () => deleteModel(m.name);
     actions.append(use, info, del);
     const tdA = el('td'); tdA.appendChild(actions); tr.appendChild(tdA);
@@ -447,27 +455,27 @@ async function toggleDetails(tr, name) {
   if (next && next.classList.contains('detail')) { next.remove(); return; }
   const row = el('tr', 'detail');
   const td = el('td'); td.colSpan = 6;
-  td.appendChild(el('span', 'loading', 'consultando…'));
+  td.appendChild(el('span', 'loading', t('details.loading')));
   row.appendChild(td);
   tr.after(row);
   const res = await window.ollama.show(name);
   td.innerHTML = '';
-  if (!res.ok) { td.appendChild(el('span', 'loading', 'Error: ' + res.error)); return; }
+  if (!res.ok) { td.appendChild(el('span', 'loading', t('details.error', { err: res.error }))); return; }
   const info = res.info || {};
   const mi = info.model_info || {};
   const arch = mi['general.architecture'] || info.details?.family || '';
   const ctx = mi[arch + '.context_length'];
   const emb = mi[arch + '.embedding_length'];
   const rows = [
-    ['familia', info.details?.family],
-    ['arquitectura', arch],
-    ['formato', info.details?.format],
-    ['contexto máx.', ctx ? ctx.toLocaleString('es') + ' tokens' : null],
-    ['embedding', emb ? emb.toLocaleString('es') : null],
-    ['capacidades', Array.isArray(info.capabilities) ? info.capabilities.join(', ') : null],
-    ['parámetros', info.parameters],
-    ['plantilla', info.template],
-    ['licencia', info.license ? String(info.license).split('\n').find(l => l.trim()) : null],
+    [t('details.family'), info.details?.family],
+    [t('details.arch'), arch],
+    [t('details.format'), info.details?.format],
+    [t('details.maxCtx'), ctx ? t('details.maxCtxUnit', { n: ctx.toLocaleString(dateLocale()) }) : null],
+    [t('details.embedding'), emb ? emb.toLocaleString(dateLocale()) : null],
+    [t('details.capabilities'), Array.isArray(info.capabilities) ? info.capabilities.join(', ') : null],
+    [t('details.params'), info.parameters],
+    [t('details.template'), info.template],
+    [t('details.license'), info.license ? String(info.license).split('\n').find(l => l.trim()) : null],
   ].filter(([, v]) => v);
   const dl = el('dl', 'kv');
   for (const [k, v] of rows) dl.append(el('dt', null, k), el('dd', null, String(v).trim()));
@@ -476,14 +484,15 @@ async function toggleDetails(tr, name) {
 
 async function deleteModel(name) {
   const ok = await window.ui.confirm({
-    title: 'Eliminar modelo',
-    message: `¿Eliminar «${name}»?`,
-    detail: 'Se borra del disco. Para volver a usarlo habrá que descargarlo de nuevo.',
+    title: t('confirm.deleteModelTitle'),
+    message: t('confirm.deleteModelMessage', { name }),
+    detail: t('confirm.deleteModelDetail'),
+    buttons: [t('confirm.cancel'), t('confirm.ok')],
   });
   if (!ok) return;
   const res = await window.ollama.delete(name);
-  if (!res.ok) { toast('No se pudo eliminar: ' + res.error, true); return; }
-  toast('Eliminado ' + shortModel(name));
+  if (!res.ok) { toast(t('toast.deleteFailed', { err: res.error }), true); return; }
+  toast(t('toast.deleted', { name: shortModel(name) }));
   if (currentModel === name) currentModel = '';
   await loadModels();
   renderModelsView();
@@ -494,21 +503,21 @@ async function pullModel() {
   const name = input.value.trim();
   if (!name) { input.focus(); return; }
   const box = $('#pull-progress'), fill = $('#pull-bar-fill'), status = $('#pull-status');
-  box.hidden = false; fill.style.width = '0%'; status.textContent = 'conectando con el registro…';
+  box.hidden = false; fill.style.width = '0%'; status.textContent = t('pull.connecting');
   $('#pull-btn').disabled = true; input.disabled = true;
   const res = await window.ollama.pull(name);
   $('#pull-btn').disabled = false; input.disabled = false;
   if (res.ok) {
-    status.textContent = 'listo'; fill.style.width = '100%';
-    toast('Descargado ' + name);
+    status.textContent = t('pull.ready'); fill.style.width = '100%';
+    toast(t('toast.downloaded', { name }));
     input.value = '';
     await loadModels();
     if (!currentModel || models.length === 1) setModel(name);
     renderModelsView();
     setTimeout(() => { box.hidden = true; }, 2500);
   } else {
-    status.textContent = 'error: ' + res.error;
-    toast('No se pudo descargar: ' + res.error, true);
+    status.textContent = t('pull.error', { err: res.error });
+    toast(t('toast.downloadFailed', { err: res.error }), true);
   }
 }
 window.ollama.onPullProgress(({ status, completed, total }) => {
@@ -516,7 +525,7 @@ window.ollama.onPullProgress(({ status, completed, total }) => {
   if (total && completed != null) {
     const pct = (completed / total) * 100;
     fill.style.width = pct.toFixed(1) + '%';
-    st.textContent = `${status} · ${fmtSize(completed)} / ${fmtSize(total)} · ${pct.toFixed(0)} %`;
+    st.textContent = t('pull.progress', { status, done: fmtSize(completed), total: fmtSize(total), pct: pct.toFixed(0) });
   } else if (status) st.textContent = status;
 });
 
@@ -530,15 +539,15 @@ async function pollRunning() {
 }
 function renderRunningInto(box, detailed) {
   box.innerHTML = '';
-  if (!runningModels.length) { box.appendChild(el('div', 'none', 'Ningún modelo cargado en memoria.')); return; }
+  if (!runningModels.length) { box.appendChild(el('div', 'none', t('running.none'))); return; }
   for (const m of runningModels) {
     const row = el('div', 'row');
     const dot = el('i', 'live is-on');
     const name = el('span', 'name', m.name);
     const bits = [fmtSize(m.size)];
-    if (m.size_vram) bits.push(m.size_vram >= m.size ? 'en GPU' : `${Math.round(m.size_vram / m.size * 100)} % en GPU`);
-    else bits.push('en CPU');
-    if (detailed && m.expires_at) bits.push('hasta ' + fmtTime(m.expires_at));
+    if (m.size_vram) bits.push(m.size_vram >= m.size ? t('running.gpu') : t('running.gpuPct', { pct: Math.round(m.size_vram / m.size * 100) }));
+    else bits.push(t('running.cpu'));
+    if (detailed && m.expires_at) bits.push(t('running.until', { time: fmtTime(m.expires_at) }));
     row.append(dot, name, el('span', 'mono', bits.join(' · ')));
     box.appendChild(row);
   }
@@ -547,11 +556,11 @@ function renderRunningEverywhere() {
   renderRunningInto($('#running-list'), false);
   renderRunningInto($('#perf-running'), true);
   const foot = $('#u-foot');
-  if (!connected) foot.textContent = 'ollama sin conexión';
-  else if (!runningModels.length) foot.textContent = 'nada en memoria';
+  if (!connected) foot.textContent = t('usageFoot.disconnected');
+  else if (!runningModels.length) foot.textContent = t('usageFoot.empty');
   else {
     const total = runningModels.reduce((a, m) => a + (m.size || 0), 0);
-    foot.textContent = `${runningModels.length} en memoria · ${fmtSize(total)}`;
+    foot.textContent = t('usageFoot.summary', { n: runningModels.length, size: fmtSize(total) });
   }
 }
 
@@ -608,7 +617,7 @@ function renderPerf() {
   const ramPct = s.ram.total ? (s.ram.used / s.ram.total) * 100 : 0;
 
   $('#cpu-big').textContent = Math.round(s.cpu);
-  $('#cpu-cores').textContent = s.cores ? s.cores + ' núcleos' : '';
+  $('#cpu-cores').textContent = s.cores ? t('perf.cores', { n: s.cores }) : '';
   setMeter('cpu-bar', s.cpu);
   $('#cpu-sub').textContent = s.cpuModel || 'CPU';
   sparkline('cpu-line', 'cpu-area', hist.cpu);
@@ -616,7 +625,7 @@ function renderPerf() {
   $('#ram-big').textContent = Math.round(ramPct);
   $('#ram-total').textContent = fmtSize(s.ram.total);
   setMeter('ram-bar', ramPct);
-  $('#ram-sub').textContent = `${fmtSize(s.ram.used)} en uso · ${fmtSize(s.ram.free)} libres`;
+  $('#ram-sub').textContent = t('perf.ramSub', { used: fmtSize(s.ram.used), free: fmtSize(s.ram.free) });
   sparkline('ram-line', 'ram-area', hist.ram);
 
   const card = $('#gpu-bar').closest('.instrument');
@@ -625,12 +634,12 @@ function renderPerf() {
     $('#gpu-big').textContent = Math.round(s.gpu.util);
     $('#gpu-temp').textContent = s.gpu.temp ? s.gpu.temp + ' °C' : '';
     setMeter('gpu-bar', s.gpu.util);
-    $('#gpu-sub').textContent = `${s.gpu.name} · ${fmtSize(s.gpu.memUsed)} / ${fmtSize(s.gpu.memTotal)} VRAM`;
+    $('#gpu-sub').textContent = t('perf.gpuSub', { name: s.gpu.name, used: fmtSize(s.gpu.memUsed), total: fmtSize(s.gpu.memTotal) });
   } else {
     $('#gpu-big').textContent = '–';
     $('#gpu-temp').textContent = '';
     setMeter('gpu-bar', 0, true);
-    $('#gpu-sub').textContent = 'Sin GPU NVIDIA (nvidia-smi no disponible)';
+    $('#gpu-sub').textContent = t('perf.noGpu');
   }
   sparkline('gpu-line', 'gpu-area', hist.gpu);
   renderLastGen();
@@ -657,27 +666,56 @@ function switchView(v) {
 }
 
 // ── Tema ─────────────────────────────────────────────────────
-function applyTheme(t) {
-  document.documentElement.setAttribute('data-theme', t);
-  $('#theme-toggle').textContent = t === 'dark' ? 'Tema claro' : 'Tema oscuro';
-  store.save('theme', t);
-  window.ui.setTitleBarTheme(t); // recolorea min/max/cerrar a juego con el tema
+function updateThemeLabel() {
+  const t2 = document.documentElement.getAttribute('data-theme');
+  $('#theme-toggle').textContent = t2 === 'dark' ? t('theme.toLight') : t('theme.toDark');
+}
+function applyTheme(t2) {
+  document.documentElement.setAttribute('data-theme', t2);
+  updateThemeLabel();
+  store.save('theme', t2);
+  window.ui.setTitleBarTheme(t2); // recolorea min/max/cerrar a juego con el tema
+}
+
+// ── Idioma ───────────────────────────────────────────────────
+function updateModelsCatalogHint() {
+  const hint = $('#models-catalog-hint');
+  if (!hint) return;
+  hint.innerHTML = '';
+  hint.append(t('models.catalogPrefix') + ' ');
+  const a = el('a', null, 'ollama.com/library'); a.href = 'https://ollama.com/library';
+  hint.append(a, '.');
+}
+function onLangChange() {
+  updateThemeLabel();
+  updateOllamaCta();
+  updateComposerMeta();
+  updateModelsCatalogHint();
+  renderChatList();
+  renderMessages();
+  if (view === 'models') renderModelsView();
+  if (view === 'perf') renderPerf();
+  renderRunningEverywhere();
 }
 
 // ── Arranque ─────────────────────────────────────────────────
 function init() {
+  applyStaticI18n();
+  document.documentElement.setAttribute('lang', getLang());
   applyTheme(store.load('theme', 'dark'));
+  updateModelsCatalogHint();
   $('#system-prompt').value = settings.system;
   $('#temp').value = settings.temperature; $('#temp-val').textContent = Number(settings.temperature).toFixed(1);
   $('#num-ctx').value = settings.num_ctx;
   window.app.version().then(v => { if (v) $('#app-version').textContent = 'v' + v; });
 
   $('#new-chat').onclick = newChat;
-  document.querySelectorAll('.tab').forEach(t => t.onclick = () => switchView(t.dataset.view));
+  document.querySelectorAll('.tab').forEach(t2 => t2.onclick = () => switchView(t2.dataset.view));
   $('#usage').onclick = () => switchView('perf');
   $('#refresh-models').onclick = renderModelsView;
   $('#start-ollama').onclick = startOllama;
   $('#theme-toggle').onclick = () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  $('#lang-toggle').onclick = () => setLang(getLang() === 'es' ? 'en' : 'es');
   $('#settings-toggle').onclick = () => { const p = $('#settings-panel'); p.hidden = !p.hidden; };
   $('#pull-form').addEventListener('submit', (e) => { e.preventDefault(); pullModel(); });
 

@@ -177,17 +177,20 @@ async function waitForOllama(ms) {
   return false;
 }
 
+// El texto es un fallback por si algo llama a esto sin pasar por la UI;
+// la app traduce a partir de `code` (ver i18n.js: ollama.notInstalled / etc.).
 ipcMain.handle('ollama:start', async () => {
   if (!ollamaInstalled()) {
     return {
       ok: false,
       notInstalled: true,
+      code: 'not_installed',
       error: 'No se encontró Ollama en este equipo. Instálalo desde ollama.com/download y volvé a intentar.',
     };
   }
-  if (!spawnOllama()) return { ok: false, error: 'No se pudo lanzar ollama.' };
+  if (!spawnOllama()) return { ok: false, code: 'spawn_failed', error: 'No se pudo lanzar ollama.' };
   const ok = await waitForOllama(15000);
-  return ok ? { ok: true } : { ok: false, error: 'Ollama no respondió. ¿Está instalado y en el PATH?' };
+  return ok ? { ok: true } : { ok: false, code: 'start_timeout', error: 'Ollama no respondió. ¿Está instalado y en el PATH?' };
 });
 
 ipcMain.handle('ollama:installed', () => ollamaInstalled());
@@ -419,13 +422,14 @@ ipcMain.handle('ui:titlebar-theme', (_e, theme) => {
   mainWindow.setTitleBarOverlay({ ...colors, height: TITLEBAR_HEIGHT });
 });
 
-ipcMain.handle('ui:confirm', async (_e, { title, message, detail }) => {
+ipcMain.handle('ui:confirm', async (_e, { title, message, detail, buttons }) => {
+  const [cancelLabel, okLabel] = buttons?.length === 2 ? buttons : ['Cancelar', 'Confirmar'];
   const { response } = await dialog.showMessageBox(mainWindow, {
     type: 'warning',
-    buttons: ['Cancelar', 'Confirmar'],
+    buttons: [cancelLabel, okLabel],
     defaultId: 0,
     cancelId: 0,
-    title: title || 'Confirmar',
+    title: title || okLabel,
     message: message || '¿Estás seguro?',
     detail: detail || '',
   });
