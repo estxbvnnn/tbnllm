@@ -10,6 +10,12 @@ const { execFile, spawn } = require('child_process');
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 
+// En algunos equipos/drivers la composición por GPU se traba y la ventana
+// nunca llega a pintar su primer frame (ready-to-show no dispara y la app
+// se queda invisible aunque el proceso corra bien). La UI es simple —
+// no vale la pena arriesgar eso por aceleración de hardware.
+app.disableHardwareAcceleration();
+
 // Alto de la barra de título propia (debe coincidir con --titlebar en styles.css).
 const TITLEBAR_HEIGHT = 40;
 // Colores de la barra de título nativa (min/max/cerrar) por tema, a juego con
@@ -76,11 +82,18 @@ function createWindow() {
   if (saved?.isMaximized || !saved) mainWindow.maximize();
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  mainWindow.once('ready-to-show', () => {
+  const showOnce = () => {
+    if (mainWindow.isVisible()) return;
     mainWindow.webContents.setVisualZoomLevelLimits(1, 1); // sin pellizco-zoom
     mainWindow.webContents.setZoomFactor(1);
     mainWindow.show();
-  });
+  };
+  mainWindow.once('ready-to-show', showOnce);
+  // Red de seguridad: si por lo que sea "ready-to-show" nunca llega
+  // (se ha visto trabarse por la composición de GPU en algunos equipos),
+  // igual mostramos la ventana a los pocos segundos en vez de dejarla
+  // invisible para siempre.
+  setTimeout(showOnce, 4000);
 
   let saveTimer;
   const scheduleSave = () => { clearTimeout(saveTimer); saveTimer = setTimeout(saveWindowState, 400); };
