@@ -32,7 +32,7 @@ App de escritorio (Electron, Windows) para **chatear con** y **gestionar** tus m
 - Windows 10/11 de 64 bits.
 - [Node.js](https://nodejs.org).
 - [Ollama](https://ollama.com) instalado, con al menos un modelo descargado (`ollama pull llama3.2`) — la
-  app te avisa y te da el link si no lo tenés.
+  app te avisa y te da el link si no lo tienes.
 
 ## Arrancar
 
