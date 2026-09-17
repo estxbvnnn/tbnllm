@@ -16,8 +16,6 @@ App de escritorio (Electron, Windows) para **chatear con** y **gestionar** tus m
 - **Detecta si falta Ollama**: si no está instalado te ofrece el link de descarga; si está pero apagado, lo
   arranca sola. Tema claro/oscuro; recuerda tamaño de ventana.
 - **Español / English**: selector de idioma en el lateral, toda la interfaz se traduce al vuelo.
-- Barra de título propia, a juego con el resto del diseño (nada de marco blanco de Windows).
-- Atajos: `Enter` enviar, `Shift+Enter` salto de línea, `Esc` detener, `Ctrl+N` nueva conversación.
 
 <details>
 <summary>Más capturas (modelos, recursos, tema claro)</summary>
