@@ -18,11 +18,29 @@ const path = require('path');
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 const HOST_URL = new URL(OLLAMA_HOST);
 
-// ── Colores (mismo rojo que --accent en la app) ─────────────────────
-const red = (s) => `\x1b[38;2;255;59;48m${s}\x1b[0m`;
-const redBold = (s) => `\x1b[1m\x1b[38;2;255;59;48m${s}\x1b[0m`;
-const dim = (s) => `\x1b[38;2;130;130;130m${s}\x1b[0m`;
+// ── Paleta (la misma que --accent/--ok/--warn/--ink-3 de la app;
+// nada de colores nuevos, para que se sienta parte del mismo producto) ──
+const PAL = { red: [255, 59, 48], green: [63, 185, 80], amber: [210, 153, 34], gray: [130, 130, 130], dimmer: [90, 90, 90] };
+const fg = (rgb, s) => `\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${s}\x1b[0m`;
+const pill = (bgRgb, fgRgb, s) => `\x1b[48;2;${bgRgb[0]};${bgRgb[1]};${bgRgb[2]}m\x1b[38;2;${fgRgb[0]};${fgRgb[1]};${fgRgb[2]}m${s}\x1b[0m`;
+const red = (s) => fg(PAL.red, s);
+const green = (s) => fg(PAL.green, s);
+const amber = (s) => fg(PAL.amber, s);
+const dim = (s) => fg(PAL.gray, s);
+const dimmer = (s) => fg(PAL.dimmer, s);
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
+const boldRed = (s) => bold(red(s));
+const HIDE_CURSOR = '\x1b[?25l', SHOW_CURSOR = '\x1b[?25h';
+
+function box(lines, width = 52) {
+  return [
+    dim('┌' + '─'.repeat(width) + '┐'),
+    ...lines.map((l) => dim('│ ') + l + ' '.repeat(Math.max(0, width - 2 - visLen(l))) + dim(' │')),
+    dim('└' + '─'.repeat(width) + '┘'),
+  ].join('\n');
+}
+// Largo visible de un string con códigos ANSI adentro (para alinear el box).
+const visLen = (s) => s.replace(/\x1b\[[0-9;]*m/g, '').length;
 
 function apiRequest(method, pathname, body) {
   return new Promise((resolve, reject) => {
@@ -68,8 +86,8 @@ function apiStream(pathname, body, onLine) {
   return req;
 }
 
-async function ollamaUp() {
-  try { await apiRequest('GET', '/api/version'); return true; } catch { return false; }
+async function ollamaVersion() {
+  try { return (await apiRequest('GET', '/api/version')).version; } catch { return null; }
 }
 
 const fmtSize = (b) => {
@@ -79,8 +97,22 @@ const fmtSize = (b) => {
   return (i >= 2 ? n.toFixed(1) : Math.round(n)) + ' ' + u[i];
 };
 
+// ── Spinner (braille) mientras se espera el primer token ───────────────
+const SPIN_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+function startSpinner(label) {
+  let i = 0;
+  process.stdout.write(HIDE_CURSOR);
+  const render = () => process.stdout.write(`\r${red(SPIN_FRAMES[i])} ${dim(label)}` + ' '.repeat(6));
+  render();
+  const timer = setInterval(() => { i = (i + 1) % SPIN_FRAMES.length; render(); }, 80);
+  return () => {
+    clearInterval(timer);
+    process.stdout.write('\r' + ' '.repeat(label.length + 8) + '\r' + SHOW_CURSOR);
+  };
+}
+
 const HELP = `
-${bold('Comandos:')}
+${bold('Comandos')}
   ${red('/model')} <nombre>   cambiar de modelo
   ${red('/models')}           listar modelos instalados
   ${red('/pull')} <nombre>    descargar un modelo nuevo
@@ -91,7 +123,7 @@ ${bold('Comandos:')}
   ${red('/save')} <archivo>   guardar la conversación como .md
   ${red('/help')}             esta ayuda
   ${red('/exit')}             salir (o Ctrl+D)
-  Ctrl+C mientras el modelo responde: lo corta, sin cerrar la sesión.
+  ${dimmer('Ctrl+C mientras el modelo responde: lo corta, sin cerrar la sesión.')}
 `;
 
 async function pickModel(rl, preselected) {
@@ -107,15 +139,19 @@ async function pickModel(rl, preselected) {
     if (hit) return hit.name;
     console.log(red(`No encontré "${preselected}" entre tus modelos instalados.`));
   }
-  console.log(bold('Modelos instalados:'));
-  models.forEach((m, i) => console.log(`  ${red(String(i + 1).padStart(2))}  ${m.name}  ${dim(fmtSize(m.size))}`));
-  const answer = await new Promise((res) => rl.question(dim('\nElegí un número (Enter = el primero): '), res));
+  console.log(bold('Modelos instalados'));
+  console.log(dim('─'.repeat(40)));
+  models.forEach((m, i) => {
+    console.log(`  ${pill(PAL.red, [10, 10, 10], ' ' + (i + 1) + ' ')} ${bold(m.name)}  ${dim(fmtSize(m.size))}`);
+  });
+  const answer = await new Promise((res) => rl.question('\n' + dim('Elegí un número ') + dimmer('(Enter = el primero) ') + red('❯ '), res));
   const idx = answer.trim() ? parseInt(answer, 10) - 1 : 0;
   return models[idx] ? models[idx].name : models[0].name;
 }
 
 async function pullModel(name) {
-  console.log(dim(`Descargando ${name}…`));
+  console.log(dim(`Descargando ${bold(name)}…`));
+  const WIDTH = 28;
   await new Promise((resolve, reject) => {
     let lastPct = -1;
     const req = apiStream('/api/pull', { model: name, stream: true }, (obj) => {
@@ -123,38 +159,57 @@ async function pullModel(name) {
         const pct = Math.floor((obj.completed / obj.total) * 100);
         if (pct !== lastPct) {
           lastPct = pct;
-          process.stdout.write(`\r  ${red(obj.status || 'bajando')} ${fmtSize(obj.completed)}/${fmtSize(obj.total)} (${pct}%)   `);
+          const filled = Math.round((pct / 100) * WIDTH);
+          const bar = red('█'.repeat(filled)) + dimmer('░'.repeat(WIDTH - filled));
+          process.stdout.write(`\r  [${bar}] ${String(pct).padStart(3)}%  ${dim(fmtSize(obj.completed) + ' / ' + fmtSize(obj.total))}   `);
         }
       } else if (obj.status) {
-        process.stdout.write(`\r  ${dim(obj.status)}` + ' '.repeat(20));
+        process.stdout.write(`\r  ${dim(obj.status)}` + ' '.repeat(30));
       }
       if (obj.error) reject(new Error(obj.error));
     });
     req.on('close', () => { process.stdout.write('\n'); resolve(); });
     req.on('error', reject);
   });
-  console.log(red('✓') + ` ${name} listo.\n`);
+  console.log(green('✓') + ` ${bold(name)} listo.\n`);
+}
+
+function printStatus(connected, version, model, state) {
+  const dot = connected ? green('●') : red('●');
+  const brand = pill(PAL.red, [10, 10, 10], bold(' tbnllm '));
+  const conn = connected ? dim(`v${version}`) : red('sin conexión');
+  console.log(`${brand} ${dot} ${conn}  ${dimmer('│')}  ${bold(dim(model))}  ${dimmer('·')} ${dim('ctx ' + state.num_ctx)} ${dimmer('·')} ${dim('temp ' + state.temperature)}${state.system ? '  ' + dimmer('·') + ' ' + amber('system ✓') : ''}`);
 }
 
 async function main() {
   console.log();
-  console.log('  ' + redBold('> tbnllm') + dim(' — cliente de terminal'));
-  console.log(dim('  Lo mismo en PowerShell, bash o zsh — es Node, no hace falta nada más.'));
+  console.log(box([
+    bold(red('tbnllm')) + dim('  — cliente de terminal'),
+    dimmer('PowerShell / bash / zsh — mismo binario, sin nada extra'),
+  ]));
   console.log();
 
-  if (!(await ollamaUp())) {
-    console.log(red('No hay conexión con Ollama.'));
-    console.log(dim('Arrancalo con ') + bold('ollama serve') + dim(' (o abrí la app tbnllm, que lo hace sola) y reintentá.'));
+  const version = await ollamaVersion();
+  if (!version) {
+    console.log(red('✗ No hay conexión con Ollama.'));
+    console.log(dim('  Arrancalo con ') + bold('ollama serve') + dim(' (o abrí la app tbnllm, que lo hace sola) y reintentá.'));
     process.exit(1);
   }
+  console.log(green('✓') + dim(` conectado — Ollama v${version}`));
+  console.log();
 
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: red('tú> ') });
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: boldRed('tú') + ' ' + red('❯') + ' ' });
   // Si stdin no es una terminal interactiva (pipe, script, CI) puede cerrarse
   // sola en cualquier momento; con esta guarda no explota con un stack trace,
   // simplemente termina como si hubieras apretado Ctrl+D.
   let closed = false;
   rl.on('close', () => { closed = true; console.log(dim('\nChau.')); process.exit(0); });
-  const safePrompt = () => { if (!closed) rl.prompt(); };
+  const safePrompt = () => {
+    if (closed) return;
+    console.log();
+    printStatus(true, version, model, state);
+    rl.prompt();
+  };
 
   let model = await pickModel(rl, process.argv[2]);
   if (closed) return;
@@ -165,7 +220,7 @@ async function main() {
   let history = [];
   let currentReq = null;
 
-  console.log(dim(`\nModelo activo: `) + bold(model) + dim(` — /help para ver los comandos.\n`));
+  console.log(dim(`\nModelo activo: `) + bold(model) + dim(` — /help para ver los comandos.`));
   safePrompt();
 
   rl.on('SIGINT', () => {
@@ -186,31 +241,31 @@ async function main() {
           break;
         case 'models': {
           const tags = await apiRequest('GET', '/api/tags').catch(() => ({ models: [] }));
-          (tags.models || []).forEach((m) => console.log(`  ${m.name === model ? red('>') : ' '} ${m.name}  ${dim(fmtSize(m.size))}`));
+          (tags.models || []).forEach((m) => console.log(`  ${m.name === model ? green('●') : dimmer('○')} ${bold(m.name)}  ${dim(fmtSize(m.size))}`));
           break;
         }
         case 'model':
-          if (!arg) { console.log(dim('Modelo activo: ') + model); break; }
-          { const picked = await pickModel(rl, arg); if (picked) { model = picked; console.log(red('✓') + ` ahora usás ${model}`); } }
+          if (!arg) { console.log(dim('Modelo activo: ') + bold(model)); break; }
+          { const picked = await pickModel(rl, arg); if (picked) { model = picked; console.log(green('✓') + ` ahora usás ${bold(model)}`); } }
           break;
         case 'pull':
           if (!arg) { console.log(dim('Uso: /pull <nombre>')); break; }
-          await pullModel(arg).catch((e) => console.log(red('Error: ') + e.message));
+          await pullModel(arg).catch((e) => console.log(red('✗ Error: ') + e.message));
           break;
         case 'system':
           state.system = arg;
-          console.log(arg ? red('✓') + ' system prompt actualizado' : dim('system prompt borrado'));
+          console.log(arg ? green('✓') + ' system prompt actualizado' : dim('system prompt borrado'));
           break;
         case 'temp': {
           const n = Number(arg);
           if (!Number.isFinite(n)) { console.log(dim('Uso: /temp <número entre 0 y 2>')); break; }
-          state.temperature = n; console.log(red('✓') + ` temperatura: ${n}`);
+          state.temperature = n; console.log(green('✓') + ` temperatura: ${n}`);
           break;
         }
         case 'ctx': {
           const n = parseInt(arg, 10);
           if (!Number.isFinite(n) || n < 1) { console.log(dim('Uso: /ctx <número>')); break; }
-          state.num_ctx = n; console.log(red('✓') + ` num_ctx: ${n}`);
+          state.num_ctx = n; console.log(green('✓') + ` num_ctx: ${n}`);
           break;
         }
         case 'new':
@@ -220,7 +275,7 @@ async function main() {
           if (!arg) { console.log(dim('Uso: /save <archivo.md>')); break; }
           const md = history.map((m) => `**${m.role === 'user' ? 'Tú' : model}:**\n\n${m.content}\n`).join('\n---\n\n');
           fs.writeFileSync(path.resolve(arg), md, 'utf8');
-          console.log(red('✓') + ` guardado en ${arg}`);
+          console.log(green('✓') + ` guardado en ${arg}`);
           break;
         }
         case 'exit': case 'quit':
@@ -236,32 +291,35 @@ async function main() {
     history.push({ role: 'user', content: text });
     const msgs = state.system ? [{ role: 'system', content: state.system }, ...history] : history;
 
-    process.stdout.write(red('· ') );
+    console.log();
+    const stopSpin = startSpinner('pensando…');
     let acc = '';
-    let gotFirstToken = false;
+    let printedHeader = false;
     const t0 = Date.now();
 
     await new Promise((resolve) => {
       currentReq = apiStream('/api/chat', { model, messages: msgs, stream: true, options: { temperature: state.temperature, num_ctx: state.num_ctx } }, (obj) => {
         const token = obj.message?.content || '';
         if (token) {
-          if (!gotFirstToken) { gotFirstToken = true; }
+          if (!printedHeader) { stopSpin(); console.log(dim(model)); printedHeader = true; }
           acc += token;
           process.stdout.write(token);
         }
         if (obj.done) {
+          if (!printedHeader) { stopSpin(); console.log(dim(model)); }
           const secs = (Date.now() - t0) / 1000;
           const tps = obj.eval_count && obj.eval_duration ? (obj.eval_count / (obj.eval_duration / 1e9)).toFixed(1) : null;
-          process.stdout.write('\n' + dim(`  ${obj.eval_count ?? '?'} tokens` + (tps ? ` · ${tps} tok/s` : '') + ` · ${secs.toFixed(1)}s`) + '\n\n');
+          process.stdout.write('\n' + dimmer(`  ▸ ${obj.eval_count ?? '?'} tokens` + (tps ? ` · ${tps} tok/s` : '') + ` · ${secs.toFixed(1)}s`) + '\n');
           currentReq = null;
           resolve();
         }
       });
       currentReq.on('error', (e) => {
-        process.stdout.write('\n' + red('Error: ') + e.message + '\n\n');
+        stopSpin();
+        process.stdout.write(red('✗ Error: ') + e.message + '\n');
         currentReq = null; resolve();
       });
-      currentReq.on('close', () => { if (currentReq) { currentReq = null; resolve(); } });
+      currentReq.on('close', () => { if (currentReq) { stopSpin(); currentReq = null; resolve(); } });
     });
 
     if (acc) history.push({ role: 'assistant', content: acc });
