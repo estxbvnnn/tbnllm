@@ -63,11 +63,17 @@ node cli.js              # elegís el modelo de una lista
 node cli.js llama3.2     # arranca directo con ese modelo
 ```
 
-O, si instalaste el paquete (`npm install` ya alcanza localmente, o `npm link` para tenerlo como comando
-global `tbnllm` en cualquier carpeta):
+Para tenerlo como comando `tbnllm` en cualquier carpeta/terminal (una sola vez, dentro de la carpeta del
+proyecto):
 
 ```bash
-npm run chat
+npm link
+```
+
+Y a partir de ahí, desde donde sea:
+
+```bash
+tbnllm
 ```
 
 Dentro del chat, `/help` lista los comandos (`/model`, `/pull`, `/system`, `/temp`, `/ctx`, `/new`,
