@@ -642,7 +642,26 @@ function renderPerf() {
     $('#gpu-sub').textContent = t('perf.noGpu');
   }
   sparkline('gpu-line', 'gpu-area', hist.gpu);
+  renderOrphanWarn(s.gpu);
   renderLastGen();
+}
+
+// VRAM que Ollama dice tener ocupada (según /api/ps) vs. la que realmente
+// reporta el driver. Si hay una diferencia grande, probablemente quedó un
+// proceso llama-server huérfano de una sesión anterior aferrado a memoria
+// que Ollama ya no sabe que existe — eso hace que cargar un modelo nuevo
+// se cuelgue o tarde muchísimo ("el modelo no responde").
+function renderOrphanWarn(gpu) {
+  const box = $('#gpu-orphan-warn');
+  if (!gpu || !gpu.memTotal) { box.hidden = true; return; }
+  const accounted = runningModels.reduce((a, m) => a + (m.size_vram || 0), 0);
+  const unaccounted = gpu.memUsed - accounted;
+  // Umbral alto a propósito: el escritorio normal (navegador, apps con
+  // aceleración, el compositor) ya usa 1-2 GB sin que eso sea un problema.
+  // Solo avisa ante algo del tamaño de un modelo entero sin explicación.
+  const show = unaccounted > 3 * 1024 ** 3 && (unaccounted / gpu.memTotal) > 0.3;
+  box.hidden = !show;
+  if (show) box.textContent = t('perf.orphanWarn', { size: fmtSize(unaccounted) });
 }
 
 function renderLastGen() {

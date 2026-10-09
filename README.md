@@ -16,6 +16,8 @@ App de escritorio (Electron, Windows) para **chatear con** y **gestionar** tus m
 - **Detecta si falta Ollama**: si no está instalado te ofrece el link de descarga; si está pero apagado, lo
   arranca sola. Tema claro/oscuro; recuerda tamaño de ventana.
 - **Español / English**: selector de idioma en el lateral, toda la interfaz se traduce al vuelo.
+- **Cliente de terminal** (`cli.js`): el mismo chat con streaming, pero por consola — PowerShell, bash o
+  zsh, igual en Windows y Linux/macOS.
 
 <details>
 <summary>Más capturas (modelos, recursos, tema claro)</summary>
@@ -50,6 +52,26 @@ npm start
 Toda la comunicación con Ollama ocurre en el proceso principal de Electron (`main.js`), así que no hay
 problemas de CORS y el streaming es fluido. Los datos (conversaciones, tema, ajustes) se guardan en
 `localStorage`, solo en tu equipo.
+
+## Cliente de terminal
+
+No hace falta abrir la app de escritorio para chatear con tus modelos — `cli.js` habla directo con Ollama
+desde la consola, igual en PowerShell que en bash/zsh (es Node puro, sin dependencias nuevas):
+
+```bash
+node cli.js              # elegís el modelo de una lista
+node cli.js llama3.2     # arranca directo con ese modelo
+```
+
+O, si instalaste el paquete (`npm install` ya alcanza localmente, o `npm link` para tenerlo como comando
+global `tbnllm` en cualquier carpeta):
+
+```bash
+npm run chat
+```
+
+Dentro del chat, `/help` lista los comandos (`/model`, `/pull`, `/system`, `/temp`, `/ctx`, `/new`,
+`/save`, `/exit`). `Ctrl+C` mientras el modelo responde corta esa respuesta sin cerrar la sesión.
 
 ## Compilar el .exe portable
 

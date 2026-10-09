@@ -5,8 +5,12 @@
   "main": "main.js",
   "author": "maicolpellin1",
   "license": "MIT",
+  "bin": {
+    "tbnllm": "./cli.js"
+  },
   "scripts": {
     "start": "electron .",
+    "chat": "node cli.js",
     "dist": "electron-builder --win"
   },
   "dependencies": {

@@ -331,7 +331,9 @@ input[type="range"] { accent-color: var(--accent); margin: 8px 0 0; }
 .keys { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; font: 12px var(--mono); }
 .keys dt { color: var(--ink); background: var(--bg-2); border: 1px solid var(--line-2); padding: 0 6px; line-height: 20px; }
 .keys dd { margin: 0; color: var(--ink-3); line-height: 22px; }
-.empty .warn { color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); padding: 10px 12px; border-radius: var(--r); margin-bottom: 20px; font-size: 13px; }
+.warn { color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); padding: 10px 12px; border-radius: var(--r); font-size: 13px; }
+.empty .warn { margin-bottom: 20px; }
+#gpu-orphan-warn { margin-top: 14px; }
 
 /* ── Redactor ─────────────────────────────────────────────── */
 .composer-wrap { padding: 8px 24px 18px; flex: none; }
